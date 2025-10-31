@@ -14,7 +14,7 @@ protocol ProfileViewControllerProtocol: AnyObject {
 
 @MainActor
 final class ProfileViewController: UIViewController,
-    ProfileViewControllerProtocol
+                                   ProfileViewControllerProtocol
 {
     private let userPicImageView = UIImageView()
     private let personNameLabel = UILabel()
@@ -22,7 +22,8 @@ final class ProfileViewController: UIViewController,
     private let profileDescriptionLabel = UILabel()
     private let exitButton = UIButton()
     private let debugSkeletonButton = UIButton(type: .system)
-
+    private let clearCacheButton = UIButton(type: .system)
+    
     var presenter: ProfilePresenterProtocol?
     private var animationLayers = [CALayer]()
     private var infoDidLoaded: Bool = false
@@ -37,7 +38,7 @@ final class ProfileViewController: UIViewController,
         presenter?.view = self
         presenter?.viewDidLoad()
     }
-
+    
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         userPicImageView.layer.cornerRadius = userPicImageView.bounds.height / 2
@@ -54,30 +55,30 @@ final class ProfileViewController: UIViewController,
     
     private func setupViewElements() {
         view.backgroundColor = .ypBlackIOS
-
+        
         userPicImageView.translatesAutoresizingMaskIntoConstraints = false
         userPicImageView.image = UIImage(named: "no_profile_pic")
         userPicImageView.clipsToBounds = true
         userPicImageView.isHidden = false
-
+        
         personNameLabel.text = ""
         personNameLabel.font = UIFont.systemFont(ofSize: 23, weight: .bold)
         personNameLabel.textColor = UIColor(named: "YP White (iOS)")
         personNameLabel.translatesAutoresizingMaskIntoConstraints = false
-
+        
         usernameLabel.text = ""
         usernameLabel.font = UIFont.systemFont(ofSize: 13)
         usernameLabel.textColor = UIColor(named: "YP Gray (iOS)")
         usernameLabel.translatesAutoresizingMaskIntoConstraints = false
-
+        
         profileDescriptionLabel.text = ""
         profileDescriptionLabel.font = UIFont.systemFont(ofSize: 13)
         profileDescriptionLabel.textColor = UIColor(named: "YP White (iOS)")
         profileDescriptionLabel.translatesAutoresizingMaskIntoConstraints =
-            false
+        false
         profileDescriptionLabel.numberOfLines = 0
         profileDescriptionLabel.lineBreakMode = .byWordWrapping
-
+        
         exitButton.setImage(UIImage(named: "Exit"), for: .normal)
         exitButton.addAction(
             UIAction { [weak self] _ in
@@ -93,7 +94,7 @@ final class ProfileViewController: UIViewController,
         view.addSubview(usernameLabel)
         view.addSubview(profileDescriptionLabel)
         view.addSubview(exitButton)
-
+        
         // DEBUG: toggle skeleton animations
         let iconName = "stop.circle" // will be updated after setSkeletonActive in viewDidLoad
         debugSkeletonButton.setImage(UIImage(systemName: iconName), for: .normal)
@@ -113,8 +114,78 @@ final class ProfileViewController: UIViewController,
             self?.didTapDebugSkeleton()
         }, for: .touchUpInside)
         view.addSubview(debugSkeletonButton)
+        
+        clearCacheButton.setImage(UIImage(systemName: "trash.circle"), for: .normal)
+        clearCacheButton.imageView?.contentMode = .scaleAspectFit
+        clearCacheButton.setPreferredSymbolConfiguration(symbolConfig, forImageIn: .normal)
+        clearCacheButton.tintColor = .white
+        clearCacheButton.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+        clearCacheButton.layer.cornerRadius = 18
+        clearCacheButton.layer.masksToBounds = true
+        clearCacheButton.layer.borderWidth = 1
+        clearCacheButton.layer.borderColor = UIColor.white.withAlphaComponent(0.18).cgColor
+        clearCacheButton.translatesAutoresizingMaskIntoConstraints = false
+        clearCacheButton.accessibilityIdentifier = "clearCacheButton"
+        clearCacheButton.addAction(UIAction { [weak self] _ in
+        self?.clearCache()
+        }, for: .touchUpInside)
+        view.addSubview(clearCacheButton)
     }
+    
+    private func clearCache() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        clearCacheButton.alpha = 0.6
 
+        UIBlockingProgressHUD.changeAnimationStyle(to: .sfSymbolBounce, symbol: "trash.circle")
+        UIBlockingProgressHUD.show("Очистка кэша")
+
+        ImageCache.default.clearMemoryCache()
+        ImageCache.default.clearDiskCache { [weak self] in
+            guard let self else { return }
+            // Также подчистим просроченное, чтобы точно всё было консистентно
+            ImageCache.default.cleanExpiredDiskCache()
+            ImageCache.default.cleanExpiredMemoryCache()
+
+            Task { @MainActor in
+                // визуальный отклик об успехе: зелёный → белый
+                UIView.transition(with: self.clearCacheButton, duration: 0.2, options: .transitionCrossDissolve, animations: {
+                    self.clearCacheButton.tintColor = .systemGreen
+                }) { _ in
+                    // вернуть цвет через небольшую задержку
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        UIView.transition(with: self.clearCacheButton, duration: 0.2, options: .transitionCrossDissolve, animations: {
+                            self.clearCacheButton.tintColor = .white
+                        }) { _ in
+                            // после завершения второй анимации — закрываем HUD и через 0.5с перезапускаем UI
+                            self.clearCacheButton.alpha = 1.0
+                            UIBlockingProgressHUD.dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                self.restartApp()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    @MainActor
+    func restartApp() {
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
+            return
+        }
+
+        let root = SplashViewController()
+
+        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve, animations: {
+            window.rootViewController = root
+            window.makeKeyAndVisible()
+        })
+    }
+    
+    
     private func setConstraints() {
         NSLayoutConstraint.activate([
             userPicImageView.topAnchor.constraint(
@@ -127,7 +198,7 @@ final class ProfileViewController: UIViewController,
             ),
             userPicImageView.widthAnchor.constraint(equalToConstant: 70),
             userPicImageView.heightAnchor.constraint(equalToConstant: 70),
-
+            
             personNameLabel.topAnchor.constraint(
                 equalTo: userPicImageView.bottomAnchor,
                 constant: 8
@@ -135,7 +206,7 @@ final class ProfileViewController: UIViewController,
             personNameLabel.leadingAnchor.constraint(
                 equalTo: userPicImageView.leadingAnchor
             ),
-
+            
             usernameLabel.topAnchor.constraint(
                 equalTo: personNameLabel.bottomAnchor,
                 constant: 8
@@ -143,7 +214,7 @@ final class ProfileViewController: UIViewController,
             usernameLabel.leadingAnchor.constraint(
                 equalTo: userPicImageView.leadingAnchor
             ),
-
+            
             profileDescriptionLabel.topAnchor.constraint(
                 equalTo: usernameLabel.bottomAnchor,
                 constant: 8
@@ -151,7 +222,7 @@ final class ProfileViewController: UIViewController,
             profileDescriptionLabel.leadingAnchor.constraint(
                 equalTo: usernameLabel.leadingAnchor
             ),
-
+            
             exitButton.centerYAnchor.constraint(
                 equalTo: userPicImageView.centerYAnchor
             ),
@@ -161,19 +232,24 @@ final class ProfileViewController: UIViewController,
                 equalTo: view.safeAreaLayoutGuide.trailingAnchor,
                 constant: -16
             ),
-
+            
             debugSkeletonButton.topAnchor.constraint(equalTo: exitButton.bottomAnchor, constant: 8),
             debugSkeletonButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             debugSkeletonButton.heightAnchor.constraint(equalToConstant: 36),
             debugSkeletonButton.widthAnchor.constraint(equalToConstant: 36),
+            
+            clearCacheButton.topAnchor.constraint(equalTo: debugSkeletonButton.bottomAnchor, constant: 8),
+            clearCacheButton.trailingAnchor.constraint(equalTo: debugSkeletonButton.trailingAnchor),
+            clearCacheButton.heightAnchor.constraint(equalTo: debugSkeletonButton.heightAnchor),
+            clearCacheButton.widthAnchor.constraint(equalTo: debugSkeletonButton.widthAnchor)
         ])
     }
-
+    
     func showProfileDetails(
         personName: String,
         username: String,
         profileDescription: String
-
+        
     ) {
         personNameLabel.text = personName
         usernameLabel.text = username
@@ -181,7 +257,7 @@ final class ProfileViewController: UIViewController,
         exitButton.isHidden = false
         setSkeletonActive(false)
     }
-
+    
     func showAvatar(url: URL) {
         let placeholderImage = UIImage(named: "no_profile_pic")
         let processor = RoundCornerImageProcessor(cornerRadius: 35)
@@ -207,9 +283,9 @@ final class ProfileViewController: UIViewController,
             }
         }
     }
-
+    
     func showLogoutAlert() {
-
+        
         let yesAction = UIAlertAction(title: "Да", style: .default) {
             [weak self] _ in
             self?.presenter?.userConfirmedLogout()
@@ -223,12 +299,12 @@ final class ProfileViewController: UIViewController,
             withActions: [
                 yesAction,
                 noAction,
-
+                
             ],
             withAccessibilityIdentifier: "confirmLogoutAlert",
             on: self
         )
-
+        
     }
     
     @objc private func didTapDebugSkeleton() {
@@ -248,7 +324,7 @@ final class ProfileViewController: UIViewController,
             gradient.name = "shimmer"
             // Fit gradient exactly to the view bounds; we'll move the highlight via locations
             gradient.frame = view.bounds
-
+            
             // Colors for shimmer: dark – light – dark
             gradient.colors = [
                 UIColor(white: 0.45, alpha: 1).cgColor,
@@ -262,7 +338,7 @@ final class ProfileViewController: UIViewController,
             gradient.masksToBounds = true
             view.layer.addSublayer(gradient)
             animationLayers.append(gradient)
-
+            
             let animation = CABasicAnimation(keyPath: "locations")
             animation.fromValue = [-0.6, -0.3, 0.0]
             animation.toValue   = [1.0, 1.3, 1.6]
@@ -278,7 +354,7 @@ final class ProfileViewController: UIViewController,
         animationLayers.forEach { $0.removeFromSuperlayer() }
         animationLayers.removeAll()
     }
-
+    
     private func setSkeletonActive(_ on: Bool) {
         if on {
             addGradientLayer(to: [userPicImageView, personNameLabel, usernameLabel, profileDescriptionLabel])
@@ -286,10 +362,10 @@ final class ProfileViewController: UIViewController,
             removeGradients()
         }
         infoDidLoaded = !on
-//        userPicImageView.alpha = on ? 0 : 1
-//        personNameLabel.alpha = on ? 0 : 1
-//        usernameLabel.alpha = on ? 0 : 1
-//        profileDescriptionLabel.alpha = on ? 0 : 1
+        //        userPicImageView.alpha = on ? 0 : 1
+        //        personNameLabel.alpha = on ? 0 : 1
+        //        usernameLabel.alpha = on ? 0 : 1
+        //        profileDescriptionLabel.alpha = on ? 0 : 1
         if on {
             personNameLabel.textColor = view.backgroundColor
             usernameLabel.textColor = view.backgroundColor

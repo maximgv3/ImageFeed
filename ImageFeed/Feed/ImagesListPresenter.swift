@@ -1,5 +1,7 @@
 import Foundation
 import UIKit
+import Kingfisher
+
 @MainActor
 protocol ImagesListPresenterProtocol: AnyObject {
     var view: ImagesListViewProtocol? { get set }
@@ -17,6 +19,7 @@ final class ImagesListPresenter: ImagesListPresenterProtocol {
     weak var view: ImagesListViewProtocol?
     private var photoCount = 0
     private var observer: NSObjectProtocol?
+    private var kfPrefetcher: ImagePrefetcher?
     var service: ImagesListServiceProtocol
     
     init(service: ImagesListServiceProtocol) {
@@ -37,9 +40,26 @@ final class ImagesListPresenter: ImagesListPresenterProtocol {
                 let newCount = self.service.photos.count
                 guard newCount > self.photoCount else { return }
                 
-                let indexPaths = (self.photoCount..<newCount).map { IndexPath(row: $0, section: 0)}
+                let range = self.photoCount..<newCount
+                let indexPaths = range.map { IndexPath(row: $0, section: 0)}
+                
+                let urls: [URL] = range.compactMap { row in
+                    let photo = self.service.photos[row]
+                    return URL(string: photo.regularImageURL)
+                }
+                if !urls.isEmpty {
+                    self.kfPrefetcher?.stop()
+                    self.kfPrefetcher = ImagePrefetcher(
+                        urls: urls,
+                        options: [.backgroundDecode, .cacheOriginalImage]
+                    )
+                    self.kfPrefetcher?.start()
+                }
+                
                 self.photoCount = newCount
                 self.view?.insertRows(at: indexPaths)
+                
+                
             }
         }
         service.fetchPhotosNextPage()

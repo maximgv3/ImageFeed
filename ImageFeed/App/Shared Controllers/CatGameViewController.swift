@@ -128,6 +128,10 @@ final class CatGameViewController: UIViewController {
             self?.catJump()
         }, for: .touchUpInside)
         
+        catButton.addAction(UIAction { [weak self] _ in
+            self?.handleHourHit()
+        }, for: .touchUpOutside)
+        
         retryButton.addAction(UIAction { [weak self] _ in
             self?.catJump()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

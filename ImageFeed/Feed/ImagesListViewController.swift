@@ -1,4 +1,5 @@
 import UIKit
+import Kingfisher
 
 @MainActor
 protocol ImagesListViewProtocol: AnyObject {
@@ -109,7 +110,7 @@ final class ImagesListViewController: UIViewController, ImagesListViewProtocol {
         cell.cellImage.kf.indicatorType = .activity
         cell.cellImage.kf.setImage(
             with:
-                URL(string: photo.thumbImageURL),
+                URL(string: photo.regularImageURL),
             placeholder: UIImage(resource: .stub)
         ) {
             [weak self, weak cell] result in
@@ -124,8 +125,6 @@ final class ImagesListViewController: UIViewController, ImagesListViewProtocol {
             cell.cellImage.contentMode = .scaleAspectFill
             cell.cellImage.backgroundColor = nil
             cell.backgroundColor = nil
-            self.tableView.beginUpdates()
-            self.tableView.endUpdates()
         }
     }
 }

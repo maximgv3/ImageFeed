@@ -14,7 +14,7 @@ final class UIBlockingProgressHUD {
         }
     }
     static func dismiss() {
-        DispatchQueue.main.async {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             ProgressHUD.dismiss()
             window?.isUserInteractionEnabled = true
         }
