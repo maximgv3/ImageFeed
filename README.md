@@ -12,6 +12,7 @@ ImageFeed is an iOS app for viewing and interacting with an image feed. The app 
 - Logout flow
 - Network error handling
 - Unit and UI tests
+- Supports iOS 15+
 
 ## Tech Stack
 
@@ -35,6 +36,16 @@ ImageFeed is an iOS app for viewing and interacting with an image feed. The app 
    `open ImageFeed.xcodeproj`
 
 3. Run the app in Xcode.
+
+## Screenshots
+
+<p align="left">
+  <img src="https://github.com/user-attachments/assets/6ac2e70e-5ed4-4242-9c47-7f29b5e0e873" width="150" />
+  <img src="https://github.com/user-attachments/assets/7cb1d67b-401c-4746-99c1-b8db40c27cd3" width="150" />
+  <img src="https://github.com/user-attachments/assets/ce07a903-588e-420b-b65c-dee4fd385e41" width="150" />
+  <img src="https://github.com/user-attachments/assets/32fd2833-fe5b-4f28-bbf0-891146225128" width="150" />
+  <img src="https://github.com/user-attachments/assets/00d2790d-a406-4488-a86c-4cf013b4e27d" width="150" />
+</p>
 
 ## Architecture
 
