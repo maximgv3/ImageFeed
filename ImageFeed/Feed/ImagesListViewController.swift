@@ -109,7 +109,7 @@ final class ImagesListViewController: UIViewController, ImagesListViewProtocol {
         cell.cellImage.kf.indicatorType = .activity
         cell.cellImage.kf.setImage(
             with:
-                URL(string: photo.thumbImageURL),
+                URL(string: photo.largeImageURL),
             placeholder: UIImage(resource: .stub)
         ) {
             [weak self, weak cell] result in

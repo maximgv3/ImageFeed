@@ -23,9 +23,9 @@ final class ProfileViewController: UIViewController,
     private let exitButton = UIButton()
 
     var presenter: ProfilePresenterProtocol?
-    private var profileImageServiceObserver: NSObjectProtocol?
     private var animationLayers = [CALayer]()
-    private var infoDidLoaded: Bool = false
+    private var infoDidLoaded = false
+    private var didSetupSkeleton = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,20 +36,16 @@ final class ProfileViewController: UIViewController,
         }
         presenter?.view = self
         presenter?.viewDidLoad()
-        profileImageServiceObserver = NotificationCenter.default.addObserver(
-            forName: ProfileImageService.didChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            self.updateAvatar()
-        }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         userPicImageView.layer.cornerRadius = userPicImageView.bounds.height / 2
-        addGradientLayer(to: [userPicImageView, personNameLabel, usernameLabel, profileDescriptionLabel])
+
+        if !infoDidLoaded && !didSetupSkeleton {
+            addGradientLayer(to: [userPicImageView, personNameLabel, usernameLabel, profileDescriptionLabel])
+            didSetupSkeleton = true
+        }
     }
     
     private func setupViewElements() {
@@ -64,11 +60,15 @@ final class ProfileViewController: UIViewController,
         personNameLabel.font = UIFont.systemFont(ofSize: 23, weight: .bold)
         personNameLabel.textColor = UIColor(named: "YP White (iOS)")
         personNameLabel.translatesAutoresizingMaskIntoConstraints = false
+        personNameLabel.numberOfLines = 0
+        personNameLabel.lineBreakMode = .byWordWrapping
 
         usernameLabel.text = ""
         usernameLabel.font = UIFont.systemFont(ofSize: 13)
         usernameLabel.textColor = UIColor(named: "YP Gray (iOS)")
         usernameLabel.translatesAutoresizingMaskIntoConstraints = false
+        usernameLabel.numberOfLines = 1
+        usernameLabel.lineBreakMode = .byTruncatingTail
 
         profileDescriptionLabel.text = ""
         profileDescriptionLabel.font = UIFont.systemFont(ofSize: 13)
@@ -77,6 +77,7 @@ final class ProfileViewController: UIViewController,
             false
         profileDescriptionLabel.numberOfLines = 0
         profileDescriptionLabel.lineBreakMode = .byWordWrapping
+        profileDescriptionLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
         exitButton.setImage(UIImage(named: "Exit"), for: .normal)
         exitButton.addAction(
@@ -116,6 +117,10 @@ final class ProfileViewController: UIViewController,
             personNameLabel.leadingAnchor.constraint(
                 equalTo: userPicImageView.leadingAnchor
             ),
+            personNameLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: exitButton.leadingAnchor,
+                constant: -16
+            ),
 
             usernameLabel.topAnchor.constraint(
                 equalTo: personNameLabel.bottomAnchor,
@@ -124,6 +129,10 @@ final class ProfileViewController: UIViewController,
             usernameLabel.leadingAnchor.constraint(
                 equalTo: userPicImageView.leadingAnchor
             ),
+            usernameLabel.trailingAnchor.constraint(
+                lessThanOrEqualTo: exitButton.leadingAnchor,
+                constant: -16
+            ),
 
             profileDescriptionLabel.topAnchor.constraint(
                 equalTo: usernameLabel.bottomAnchor,
@@ -131,6 +140,14 @@ final class ProfileViewController: UIViewController,
             ),
             profileDescriptionLabel.leadingAnchor.constraint(
                 equalTo: usernameLabel.leadingAnchor
+            ),
+            profileDescriptionLabel.trailingAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.trailingAnchor,
+                constant: -16
+            ),
+            profileDescriptionLabel.bottomAnchor.constraint(
+                lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor,
+                constant: -16
             ),
 
             exitButton.centerYAnchor.constraint(
@@ -158,6 +175,7 @@ final class ProfileViewController: UIViewController,
         userPicImageView.isHidden = false
         infoDidLoaded = true
         removeGradients()
+        didSetupSkeleton = false
     }
 
     func showAvatar(url: URL) {
@@ -209,9 +227,9 @@ final class ProfileViewController: UIViewController,
 
     }
     
-    func addGradientLayer (to views: [UIView]) {
-        
-        
+    func addGradientLayer(to views: [UIView]) {
+        guard animationLayers.isEmpty else { return }
+
         for view in views {
             let gradient = CAGradientLayer()
             gradient.frame = view.bounds
@@ -219,7 +237,7 @@ final class ProfileViewController: UIViewController,
             gradient.colors = [
                 UIColor(red: 0.682, green: 0.686, blue: 0.706, alpha: 1).cgColor,
                 UIColor(red: 0.531, green: 0.533, blue: 0.553, alpha: 1).cgColor,
-                UIColor(red: 0.431, green: 0.433, blue: 0.453, alpha: 1).cgColor
+                UIColor(red: 0.431, green: 0.433, blue: 0.453, alpha: 1).cgColor,
             ]
             gradient.startPoint = CGPoint(x: 0, y: 0.5)
             gradient.endPoint = CGPoint(x: 1, y: 0.5)
@@ -227,7 +245,7 @@ final class ProfileViewController: UIViewController,
             gradient.masksToBounds = true
             view.layer.addSublayer(gradient)
             animationLayers.append(gradient)
-            
+
             let gradientChangeAnimation = CABasicAnimation(keyPath: "locations")
             gradientChangeAnimation.duration = 1
             gradientChangeAnimation.repeatCount = .infinity
@@ -239,7 +257,10 @@ final class ProfileViewController: UIViewController,
     }
     
     private func removeGradients() {
-        animationLayers.forEach { $0.removeFromSuperlayer() }
+        animationLayers.forEach { layer in
+            layer.removeAllAnimations()
+            layer.removeFromSuperlayer()
+        }
         animationLayers.removeAll()
     }
 }
